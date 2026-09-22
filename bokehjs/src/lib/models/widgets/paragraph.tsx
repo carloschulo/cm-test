@@ -3,6 +3,8 @@ import type * as p from "core/properties"
 import {UIComponent} from "core/vdom"
 import type {VNode} from "core/vdom"
 
+import Purify from "dompurify"
+
 import * as markup_css from "styles/widgets/markup.css"
 
 export class ParagraphView extends MarkupView {
@@ -18,7 +20,7 @@ export class ParagraphView extends MarkupView {
         const {value} = text
         const set_html = (el: HTMLElement | null): void => {
           if (el != null) {
-            el.innerHTML = this.process_tex(value)
+            el.innerHTML = Purify.sanitize(this.process_tex(value))
           }
         }
         return <p class={markup_css.markup} ref={set_html}></p>
