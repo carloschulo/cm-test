@@ -28,7 +28,7 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 # External imports
-from tornado.web import HTTPError
+from tornado.web import HTTPError, authenticated
 
 # Bokeh imports
 from bokeh.core.templates import AUTOLOAD_JS
@@ -86,6 +86,7 @@ class AutoloadJsHandler(SessionHandler):
             self.set_header("Access-Control-Allow-Origin", origin)
             self.set_header("Vary", "Origin")
 
+    @authenticated
     async def get(self, *args: Any, **kwargs: Any) -> None:
         self._allow_websocket_origin()
 

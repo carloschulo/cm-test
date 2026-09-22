@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 # External imports
 from tornado.httputil import HTTPServerRequest
-from tornado.web import HTTPError, authenticated
+from tornado.web import HTTPError
 
 # Bokeh imports
 from ..core import SessionError
@@ -75,7 +75,6 @@ class SessionHandler(AuthRequestHandler):
     def initialize(self, *args: Any, **kw: Any) -> None:
         pass
 
-    @authenticated # type: ignore[arg-type]
     async def get_session(self) -> ServerSession | None:
         try:
             request = cast("RequestLike", self.request)
