@@ -35,7 +35,7 @@ calls it with the rendered model.
     {%- if elementid -%}
     const element = document.getElementById({{ elementid|tojson }});
     if (element == null) {
-      console.warn("Bokeh: autoload.js configured with elementid '{{ elementid }}' but no matching script tag was found.")
+      console.warn("Bokeh: autoload.js configured with elementid '" + {{ elementid|tojson }} + "' but no matching script tag was found.")
     }
     {%- endif %}
   {% endblock %}
