@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
 # External imports
-from tornado import locks, web
+from tornado import locks
 from tornado.websocket import WebSocketClosedError, WebSocketHandler
 
 # Bokeh imports
@@ -127,7 +127,6 @@ class WSHandler(AuthRequestHandler, WebSocketHandler):
                     origin, origin_host, origin_host, allowed_hosts)
         return False
 
-    @web.authenticated
     def open(self) -> None:
         ''' Initialize a connection to a client.
 
