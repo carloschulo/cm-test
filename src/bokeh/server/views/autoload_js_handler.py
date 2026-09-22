@@ -67,7 +67,6 @@ class AutoloadJsHandler(SessionHandler):
     def set_default_headers(self) -> None:
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "*")
-        self.set_header("Access-Control-Allow-Credentials", "true")
 
     def _allow_websocket_origin(self) -> None:
         if "Origin" not in self.request.headers:
@@ -84,6 +83,7 @@ class AutoloadJsHandler(SessionHandler):
             # Only mirror origins already trusted to open Bokeh websockets.
             # Credentialed CORS requests cannot rely on a wildcard origin.
             self.set_header("Access-Control-Allow-Origin", origin)
+            self.set_header("Access-Control-Allow-Credentials", "true")
             self.set_header("Vary", "Origin")
 
     async def get(self, *args: Any, **kwargs: Any) -> None:
