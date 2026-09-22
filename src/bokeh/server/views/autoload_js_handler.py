@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 from collections.abc import Awaitable
+import re
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -50,6 +51,8 @@ from .session_handler import SessionHandler
 __all__ = (
     'AutoloadJsHandler',
 )
+
+_VALID_ELEMENT_ID = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
 #-----------------------------------------------------------------------------
 # General API
@@ -97,6 +100,10 @@ class AutoloadJsHandler(SessionHandler):
         element_id = cast(ID | None, self.get_argument("bokeh-autoload-element", default=None))
         if not element_id:
             self.send_error(status_code=400, reason='No bokeh-autoload-element query parameter')
+            return
+
+        if not _VALID_ELEMENT_ID.match(element_id):
+            self.send_error(status_code=400, reason='Invalid bokeh-autoload-element query parameter')
             return
 
         app_path = self.get_argument("bokeh-app-path", default="/")
