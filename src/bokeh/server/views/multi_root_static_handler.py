@@ -72,7 +72,10 @@ class MultiRootStaticHandler(AsyncStaticFileHandler):
 
         artifacts_dir = root.get(name, None)
         if artifacts_dir is not None:
-            return super().get_absolute_path(str(artifacts_dir), artifact_path)
+            absolute_path = super().get_absolute_path(str(artifacts_dir), artifact_path)
+            if not Path(absolute_path).is_relative_to(os.path.abspath(str(artifacts_dir))):
+                raise HTTPError(403, "%s is not in root static directory", path)
+            return absolute_path
         else:
             raise HTTPError(404)
 
@@ -80,8 +83,18 @@ class MultiRootStaticHandler(AsyncStaticFileHandler):
         if isinstance(root, str):
             return super().validate_absolute_path(root, absolute_path)
 
+        if not hasattr(self, "path"):
+            self.path = ""
+
+        if os.sep in self.path:
+            name = self.path.split(os.sep, 1)[0]
+            artifacts_dir = root.get(name, None)
+            if artifacts_dir is not None:
+                return super().validate_absolute_path(str(artifacts_dir), absolute_path)
+            raise HTTPError(404)
+
         for artifacts_dir in root.values():
-            if Path(absolute_path).is_relative_to(artifacts_dir):
+            if Path(absolute_path).is_relative_to(os.path.abspath(str(artifacts_dir))):
                 return super().validate_absolute_path(str(artifacts_dir), absolute_path)
 
         return None
@@ -90,8 +103,18 @@ class MultiRootStaticHandler(AsyncStaticFileHandler):
         if isinstance(root, str):
             return await super()._validate_absolute_path(root, absolute_path)
 
+        if not hasattr(self, "path"):
+            self.path = ""
+
+        if os.sep in self.path:
+            name = self.path.split(os.sep, 1)[0]
+            artifacts_dir = root.get(name, None)
+            if artifacts_dir is not None:
+                return await super()._validate_absolute_path(str(artifacts_dir), absolute_path)
+            raise HTTPError(404)
+
         for artifacts_dir in root.values():
-            if Path(absolute_path).is_relative_to(artifacts_dir):
+            if Path(absolute_path).is_relative_to(os.path.abspath(str(artifacts_dir))):
                 return await super()._validate_absolute_path(str(artifacts_dir), absolute_path)
 
         return None
