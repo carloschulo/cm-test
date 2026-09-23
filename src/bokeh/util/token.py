@@ -47,6 +47,7 @@ if TYPE_CHECKING:
 #-----------------------------------------------------------------------------
 
 __all__ = (
+    'PayloadTooLargeError',
     'check_session_id_signature',
     'check_token_signature',
     'generate_secret_key',
@@ -57,6 +58,13 @@ __all__ = (
 )
 
 _TOKEN_ZLIB_KEY = "__bk__zlib_"
+_MAX_PAYLOAD_SIZE = 20 * 1024 * 1024  # 20MB
+MAX_PAYLOAD_SIZE = _MAX_PAYLOAD_SIZE
+
+
+class PayloadTooLargeError(ValueError, RuntimeError, zlib.error):
+    ''' Raised when decompressed token payload exceeds maximum allowed size. '''
+    pass
 
 #-----------------------------------------------------------------------------
 # General API
@@ -142,19 +150,37 @@ def get_session_id(token: str) -> ID:
     decoded = json.loads(_base64_decode(token.split('.')[0]))
     return decoded['session_id']
 
-def get_token_payload(token: str) -> TokenPayload:
+def get_token_payload(token: str, max_length: int = _MAX_PAYLOAD_SIZE, **kwargs: Any) -> TokenPayload:
     """Extract the payload from the token.
 
     Args:
         token (str):
             A JWT token containing the session_id and other data.
 
+        max_length (int, optional):
+            The maximum allowable length of the decompressed payload data
+            (default: 20MB).
+
     Returns:
         dict
     """
+    if "max_payload_size" in kwargs:
+        max_length = kwargs["max_payload_size"]
+    if max_length is None:
+        max_length = _MAX_PAYLOAD_SIZE
+    max_length = int(max_length)
+    if max_length <= 0:
+        raise ValueError("max_length must be positive")
+
     decoded = json.loads(_base64_decode(token.split('.')[0]))
     if _TOKEN_ZLIB_KEY in decoded:
-        decompressed = zlib.decompress(_base64_decode(decoded[_TOKEN_ZLIB_KEY]))
+        raw_bytes = _base64_decode(decoded[_TOKEN_ZLIB_KEY])
+        decompressor = zlib.decompressobj()
+        decompressed = decompressor.decompress(raw_bytes, max_length=max_length)
+        if decompressor.unconsumed_tail or (len(decompressed) == max_length and not decompressor.eof):
+            raise PayloadTooLargeError("Decompressed token payload exceeds maximum allowed size")
+        if not decompressor.eof:
+            raise zlib.error("incomplete or truncated stream")
         del decoded[_TOKEN_ZLIB_KEY]
         decoded.update(json.loads(decompressed, cls=_BytesDecoder))
     del decoded['session_id']
