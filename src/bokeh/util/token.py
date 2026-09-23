@@ -197,9 +197,24 @@ def check_token_signature(token: str,
         token_valid = hmac.compare_digest(
             expected_token_signature, provided_token_signature,
         )
-        session_id = get_session_id(token)
+        if not token_valid:
+            return False
+        try:
+            session_id = get_session_id(token)
+        except Exception:
+            return False
         session_id_valid = check_session_id_signature(session_id, secret_key, signed)
-        return token_valid and session_id_valid
+        if not session_id_valid:
+            return False
+        try:
+            decoded = json.loads(_base64_decode(base_token))
+            session_expiry = decoded['session_expiry']
+            now = calendar.timegm(dt.datetime.now(tz=dt.UTC).timetuple())
+            if now >= session_expiry:
+                return False
+        except Exception:
+            return False
+        return True
     return True
 
 def check_session_id_signature(session_id: str,
