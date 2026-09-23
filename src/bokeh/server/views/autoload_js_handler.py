@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 from collections.abc import Awaitable
+import re
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -50,6 +51,10 @@ from .session_handler import SessionHandler
 __all__ = (
     'AutoloadJsHandler',
 )
+
+_VALID_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]+$")
+_VALID_APP_PATH_RE = re.compile(r"^/[a-zA-Z0-9_\-.~/]*$")
+_VALID_URL_RE = re.compile(r"^https?://[a-zA-Z0-9_\-.:@]+(/[a-zA-Z0-9_\-.~/]*(\?[a-zA-Z0-9_\-.~&=%]*)?)?$")
 
 #-----------------------------------------------------------------------------
 # General API
@@ -99,11 +104,22 @@ class AutoloadJsHandler(SessionHandler):
             self.send_error(status_code=400, reason='No bokeh-autoload-element query parameter')
             return
 
+        if not _VALID_ID_RE.match(element_id):
+            self.send_error(status_code=400, reason='Invalid bokeh-autoload-element query parameter')
+            return
+
         app_path = self.get_argument("bokeh-app-path", default="/")
+        if not _VALID_APP_PATH_RE.match(app_path):
+            self.send_error(status_code=400, reason='Invalid bokeh-app-path query parameter')
+            return
+
         absolute_url = self.get_argument("bokeh-absolute-url", default=None)
 
         if absolute_url:
             uri = urlparse(absolute_url)
+            if uri.scheme not in ("http", "https") or not uri.netloc or not _VALID_URL_RE.match(absolute_url):
+                self.send_error(status_code=400, reason='Invalid bokeh-absolute-url query parameter')
+                return
             server_url = f"{uri.scheme}://{uri.netloc}"
         else:
             server_url = None
