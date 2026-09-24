@@ -84,7 +84,21 @@ export abstract class AbstractSliderView<T extends number | string> extends Orie
       const {title} = this.model
       if (title != null && title.length > 0) {
         if (this.contains_tex_string(title)) {
-          this.title_el.innerHTML = `${this.process_tex(title)}: `
+          const {MathJax} = this.provider
+          if (MathJax != null) {
+            let last_index: number | undefined = 0
+            for (const part of MathJax.find_tex(title)) {
+              this.title_el.append(title.slice(last_index, part.start.n))
+              this.title_el.append(MathJax.tex2svg(part.math, {display: part.display}))
+              last_index = part.end.n
+            }
+            if (last_index! < title.length) {
+              this.title_el.append(title.slice(last_index))
+            }
+            this.title_el.append(": ")
+          } else {
+            this.title_el.textContent = `${title}: `
+          }
         } else {
           this.title_el.textContent = `${title}: `
         }
