@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+import re
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote_plus, urlparse
 
@@ -50,6 +51,9 @@ __all__ = (
     'server_session',
     'server_html_page_for_session',
 )
+
+_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+_HEADER_KEY_RE = re.compile(r"^[a-zA-Z0-9!#$%&'*+\-.^_`|~]+$")
 
 #-----------------------------------------------------------------------------
 # General API
@@ -124,6 +128,9 @@ def server_document(url: str = "default", relative_urls: bool = False, resources
         raise ValueError("'headers' and 'with_credentials' are mutually exclusive")
     elif not headers:
         headers = {}
+    else:
+        headers = dict(headers)
+    headers = _clean_headers(headers)
 
     tag = AUTOLOAD_REQUEST_TAG.render(
         src_path         = src_path,
@@ -209,6 +216,7 @@ def server_session(model: Model | None = None, session_id: ID | None = None, url
     '''
     if session_id is None:
         raise ValueError("Must supply a session_id")
+    _check_session_id(session_id)
 
     url = _clean_url(url)
 
@@ -228,7 +236,8 @@ def server_session(model: Model | None = None, session_id: ID | None = None, url
         headers = {}
     else:
         headers = dict(headers)
-    headers['Bokeh-Session-Id'] = session_id
+    headers = _clean_headers(headers)
+    headers['Bokeh-Session-Id'] = _escape_header_value(session_id)
 
     tag = AUTOLOAD_REQUEST_TAG.render(
         src_path         = src_path,
@@ -299,6 +308,9 @@ def _clean_url(url: str) -> str:
 
     if url.startswith("ws"):
         raise ValueError("url should be the http or https URL for the server, not the websocket URL")
+
+    if any(c in url for c in ('"', '<', '>', '\\', '\r', '\n')):
+        raise ValueError(f"Invalid URL: {url!r}")
 
     return url.rstrip("/")
 
@@ -398,6 +410,55 @@ def _src_path(url: str, elementid: ID) -> str:
 
     '''
     return url + "/autoload.js?bokeh-autoload-element=" + elementid
+
+def _check_session_id(session_id: ID | str) -> None:
+    ''' Validate that a session ID only contains safe characters.
+
+    Args:
+        session_id (str) :
+            The session ID to validate
+
+    '''
+    if not isinstance(session_id, str) or not _SESSION_ID_RE.match(session_id):
+        raise ValueError(f"Invalid session_id: {session_id!r}")
+
+def _escape_header_value(value: str) -> str:
+    ''' Escape a header value for inclusion in a JavaScript string literal inside HTML.
+
+    Args:
+        value (str) :
+            The header value to escape
+
+    Returns:
+        str
+
+    '''
+    val = value.replace("\\", "\\\\")
+    val = val.replace('"', '\\"')
+    val = val.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    return val
+
+def _clean_headers(headers: dict[str, str]) -> dict[str, str]:
+    ''' Validate and escape HTTP headers.
+
+    Args:
+        headers (dict[str, str]) :
+            Headers to clean and escape
+
+    Returns:
+        dict[str, str]
+
+    '''
+    cleaned: dict[str, str] = {}
+    for key, value in headers.items():
+        if not isinstance(key, str) or not _HEADER_KEY_RE.match(key):
+            raise ValueError(f"Invalid header name: {key!r}")
+        if not isinstance(value, str):
+            raise ValueError(f"Invalid header value for {key!r}: expected string, got {type(value).__name__}")
+        if "\r" in value or "\n" in value:
+            raise ValueError(f"Invalid header value for {key!r}: newlines are not allowed")
+        cleaned[key] = _escape_header_value(value)
+    return cleaned
 
 #-----------------------------------------------------------------------------
 # Code
