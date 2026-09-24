@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+from html import escape
 from typing import Any
 
 # Bokeh imports
@@ -95,8 +96,8 @@ def notebook_content(model: Model, notebook_comms_target: str | None = None, the
         render_item_json["notebook_comms_target"] = notebook_comms_target
 
     script = DOC_NB_JS.render(
-        docs_json=serialize_json(docs_json),
-        render_items=serialize_json([render_item_json]),
+        docs_json=escape(serialize_json(docs_json), quote=False),
+        render_items=escape(serialize_json([render_item_json]), quote=False),
     )
 
     return script, div, new_doc
