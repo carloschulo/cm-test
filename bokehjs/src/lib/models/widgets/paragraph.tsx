@@ -2,12 +2,36 @@ import {Markup, MarkupView} from "./markup"
 import type * as p from "core/properties"
 import {UIComponent} from "core/vdom"
 import type {VNode} from "core/vdom"
+import {escape} from "core/util/string"
 
 import * as markup_css from "styles/widgets/markup.css"
 
 export class ParagraphView extends MarkupView {
   declare readonly model: Paragraph
   declare readonly signals: p.SignalsOf<Paragraph.Props>
+
+  override process_tex(text: string): string {
+    if (this.provider.MathJax == null) {
+      return escape(text)
+    }
+
+    const tex_parts = this.provider.MathJax.find_tex(text)
+    const processed_text: string[] = []
+
+    let last_index: number | undefined = 0
+    for (const part of tex_parts) {
+      processed_text.push(escape(text.slice(last_index, part.start.n)))
+      processed_text.push(this.provider.MathJax.tex2svg(part.math, {display: part.display}).outerHTML)
+
+      last_index = part.end.n
+    }
+
+    if (last_index! < text.length) {
+      processed_text.push(escape(text.slice(last_index)))
+    }
+
+    return processed_text.join("")
+  }
 
   override component(): VNode {
     const {text} = this.signals
