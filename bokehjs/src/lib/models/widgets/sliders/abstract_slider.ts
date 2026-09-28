@@ -7,6 +7,7 @@ import type {StyleSheetLike} from "core/dom"
 import {div, span, empty} from "core/dom"
 import {repeat} from "core/util/array"
 import {color2css} from "core/util/color"
+import {escape} from "core/util/string"
 
 import {OrientedControl, OrientedControlView} from "../oriented_control"
 
@@ -48,6 +49,29 @@ export abstract class AbstractSliderView<T extends number | string> extends Orie
   }
 
   abstract pretty(value: number | string): string
+
+  override process_tex(text: string): string {
+    if (this.provider.MathJax == null) {
+      return escape(text)
+    }
+
+    const tex_parts = this.provider.MathJax.find_tex(text)
+    const processed_text: string[] = []
+
+    let last_index = 0
+    for (const part of tex_parts) {
+      processed_text.push(escape(text.slice(last_index, part.start.n)))
+      processed_text.push(this.provider.MathJax.tex2svg(part.math, {display: part.display}).outerHTML)
+
+      last_index = part.end.n
+    }
+
+    if (last_index < text.length) {
+      processed_text.push(escape(text.slice(last_index)))
+    }
+
+    return processed_text.join("")
+  }
 
   protected _update_slider(): void {
     this._noUiSlider.updateOptions(this._calc_to(), true)
