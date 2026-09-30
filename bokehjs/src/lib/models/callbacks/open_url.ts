@@ -4,6 +4,25 @@ import {replace_placeholders} from "core/util/templating"
 import {isString} from "core/util/types"
 import type * as p from "core/properties"
 
+export function is_safe_url(url: string): boolean {
+  let base = "http://localhost"
+  try {
+    if (typeof window !== "undefined" && window.location?.href) {
+      base = window.location.href
+    }
+  } catch {
+    // Ignore restricted window.location access
+  }
+
+  try {
+    const parsed = new URL(url, base)
+    const allowed_protocols = ["http:", "https:", "mailto:", "ftp:", "tel:"]
+    return allowed_protocols.includes(parsed.protocol) || parsed.protocol === "file:"
+  } catch {
+    return false
+  }
+}
+
 export namespace OpenURL {
   export type Attrs = p.AttrsOf<Props>
 
@@ -26,6 +45,9 @@ export class OpenURL extends Callback {
   }
 
   navigate(url: string): void {
+    if (!is_safe_url(url)) {
+      throw new Error(`OpenURL: Unsafe URL scheme rejected: ${url}`)
+    }
     if (this.same_tab) {
       window.location.href = url
     } else {
