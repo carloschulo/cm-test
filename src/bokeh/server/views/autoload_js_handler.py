@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+import re
 from collections.abc import Awaitable
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -50,6 +51,10 @@ from .session_handler import SessionHandler
 __all__ = (
     'AutoloadJsHandler',
 )
+
+_ELEMENT_ID_RE = re.compile(r'^[a-zA-Z0-9_.:\-]+$')
+_APP_PATH_RE = re.compile(r'^[a-zA-Z0-9/_.~+\-%]*$')
+_URL_CHARS_RE = re.compile(r'^[a-zA-Z0-9:/?#&=%_.~+\-[\]]+$')
 
 #-----------------------------------------------------------------------------
 # General API
@@ -99,12 +104,26 @@ class AutoloadJsHandler(SessionHandler):
             self.send_error(status_code=400, reason='No bokeh-autoload-element query parameter')
             return
 
+        if not _is_valid_element_id(element_id):
+            self.send_error(status_code=400, reason='Invalid bokeh-autoload-element query parameter')
+            return
+
         app_path = self.get_argument("bokeh-app-path", default="/")
+        if not _is_valid_app_path(app_path):
+            self.send_error(status_code=400, reason='Invalid bokeh-app-path query parameter')
+            return
+
         absolute_url = self.get_argument("bokeh-absolute-url", default=None)
+        if absolute_url is not None and not _is_valid_absolute_url(absolute_url):
+            self.send_error(status_code=400, reason='Invalid bokeh-absolute-url query parameter')
+            return
 
         if absolute_url:
             uri = urlparse(absolute_url)
-            server_url = f"{uri.scheme}://{uri.netloc}"
+            if uri.scheme and uri.netloc:
+                server_url = f"{uri.scheme}://{uri.netloc}"
+            else:
+                server_url = None
         else:
             server_url = None
 
@@ -128,6 +147,38 @@ class AutoloadJsHandler(SessionHandler):
 #-----------------------------------------------------------------------------
 # Private API
 #-----------------------------------------------------------------------------
+
+def _is_valid_element_id(element_id: str) -> bool:
+    return bool(_ELEMENT_ID_RE.match(element_id))
+
+def _is_valid_app_path(app_path: str) -> bool:
+    if not _APP_PATH_RE.match(app_path):
+        return False
+    if app_path.startswith('//'):
+        return False
+    if '/..' in app_path or '../' in app_path or app_path == '..':
+        return False
+    return True
+
+def _is_valid_absolute_url(absolute_url: str) -> bool:
+    if not absolute_url:
+        return True
+    if not _URL_CHARS_RE.match(absolute_url):
+        return False
+    uri = urlparse(absolute_url)
+    if uri.scheme:
+        if uri.scheme.lower() not in ('http', 'https'):
+            return False
+        if not uri.netloc:
+            return False
+    else:
+        if uri.netloc:
+            return False
+        if uri.path.startswith('//'):
+            return False
+        if '/..' in uri.path or '../' in uri.path or uri.path == '..':
+            return False
+    return True
 
 #-----------------------------------------------------------------------------
 # Code
