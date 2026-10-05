@@ -1,6 +1,7 @@
 import {LayoutDOM, LayoutDOMView} from "../layouts/layout_dom"
 import type {MathJaxProvider} from "models/text/providers"
 import {default_provider} from "models/text/providers"
+import {escape} from "core/util/string"
 
 import type * as p from "core/properties"
 
@@ -33,7 +34,7 @@ export abstract class WidgetView extends LayoutDOMView {
 
   process_tex(text: string): string {
     if (this.provider.MathJax == null) {
-      return text
+      return escape(text)
     }
 
     const tex_parts = this.provider.MathJax.find_tex(text)
@@ -41,14 +42,14 @@ export abstract class WidgetView extends LayoutDOMView {
 
     let last_index: number | undefined = 0
     for (const part of tex_parts) {
-      processed_text.push(text.slice(last_index, part.start.n))
+      processed_text.push(escape(text.slice(last_index, part.start.n)))
       processed_text.push(this.provider.MathJax.tex2svg(part.math, {display: part.display}).outerHTML)
 
       last_index = part.end.n
     }
 
     if (last_index! < text.length) {
-      processed_text.push(text.slice(last_index))
+      processed_text.push(escape(text.slice(last_index)))
     }
 
     return processed_text.join("")
