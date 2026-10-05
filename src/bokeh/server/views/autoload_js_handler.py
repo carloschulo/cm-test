@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+import re
 from collections.abc import Awaitable
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -100,12 +101,21 @@ class AutoloadJsHandler(SessionHandler):
             return
 
         app_path = self.get_argument("bokeh-app-path", default="/")
-        absolute_url = self.get_argument("bokeh-absolute-url", default=None)
+        if not app_path:
+            app_path = "/"
+        if not _is_valid_app_path(app_path):
+            self.send_error(status_code=400, reason='Invalid bokeh-app-path query parameter')
+            return
 
+        absolute_url = self.get_argument("bokeh-absolute-url", default=None)
         if absolute_url:
+            if not _is_valid_url(absolute_url):
+                self.send_error(status_code=400, reason='Invalid bokeh-absolute-url query parameter')
+                return
             uri = urlparse(absolute_url)
             server_url = f"{uri.scheme}://{uri.netloc}"
         else:
+            absolute_url = None
             server_url = None
 
         resources_param = self.get_argument("resources", "default")
@@ -128,6 +138,29 @@ class AutoloadJsHandler(SessionHandler):
 #-----------------------------------------------------------------------------
 # Private API
 #-----------------------------------------------------------------------------
+
+_APP_PATH_RE = re.compile(r"^/[a-zA-Z0-9_.~/%-]*$")
+_URL_RE = re.compile(r"^https?://[a-zA-Z0-9_.~:/?#\[\]@!$&*+=%-]+$")
+
+
+def _is_valid_app_path(path: str) -> bool:
+    if not path.startswith("/") or path.startswith("//"):
+        return False
+    if ".." in path.split("/"):
+        return False
+    return bool(_APP_PATH_RE.fullmatch(path))
+
+
+def _is_valid_url(url: str) -> bool:
+    try:
+        uri = urlparse(url)
+    except Exception:
+        return False
+    if uri.scheme not in ("http", "https"):
+        return False
+    if not uri.netloc:
+        return False
+    return bool(_URL_RE.fullmatch(url))
 
 #-----------------------------------------------------------------------------
 # Code
