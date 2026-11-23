@@ -1,5 +1,6 @@
 import type {API, PartialFormatter} from "nouislider"
 import noUiSlider from "nouislider"
+import Purify from "dompurify"
 
 import * as p from "core/properties"
 import type {Color} from "core/types"
@@ -84,7 +85,7 @@ export abstract class AbstractSliderView<T extends number | string> extends Orie
       const {title} = this.model
       if (title != null && title.length > 0) {
         if (this.contains_tex_string(title)) {
-          this.title_el.innerHTML = `${this.process_tex(title)}: `
+          this.title_el.innerHTML = Purify.sanitize(`${this.process_tex(title)}: `)
         } else {
           this.title_el.textContent = `${title}: `
         }
